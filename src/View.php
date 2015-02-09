@@ -6,6 +6,8 @@
 namespace Spindle;
 
 use ArrayObject;
+use Psr\Http\Message\StreamableInterface;
+use Phly\Http\Stream;
 
 /**
  * 素のPHPテンプレートにlayout機能を付加するシンプルなレンダラーです
@@ -25,7 +27,7 @@ class View implements \IteratorAggregate
      * @param string $basePath テンプレートの探索基準パスです。相対パスも指定できます。指定しなければinclude_pathから探索します。
      * @param ArrayObject $arr
      */
-    function __construct($fileName, $basePath='', ArrayObject $arr=null)
+    function __construct($fileName, $basePath = '', ArrayObject $arr = null)
     {
         $this->_storage = $arr ?: new ArrayObject(array(), ArrayObject::ARRAY_AS_PROPS);
         $this->_fileName = trim($fileName, \DIRECTORY_SEPARATOR);
@@ -143,17 +145,22 @@ class View implements \IteratorAggregate
     }
 
     /**
-     * テンプレートファイルを描画して文字列にして返します
-     * @return string
+     * テンプレートファイルを描画してstream にwrite
+     * @return StreamableInterface
      */
-    function render()
+    function render(StreambleInteface $stream = null)
     {
+        $oneMB = 1 * 1024 * 1024;
+        $stream = ($stream) ?: new Stream("php://temp/maxmemory:$oneMB", 'r+w');
+
         foreach ($this->_storage as ${"\x00key"} => ${"\x00val"}) {
             $${"\x00key"} = ${"\x00val"};
         }
-        ob_start();
+        ob_start(function($buffer) use (&$stream) {
+            $stream->write($buffer);
+        }, 1024 * 1024);
         include (string)$this;
-        $html = ob_get_clean();
+        ob_end_flush();
 
         if ($this->_layoutFileName) {
             $layout = new static(
@@ -161,10 +168,10 @@ class View implements \IteratorAggregate
                 $this->_basePath,
                 $this->_storage
             );
-            $layout->setContent($html);
+            $layout->setContent($stream);
             return $layout->render();
         } else {
-            return $html;
+            return $stream;
         }
     }
 
@@ -177,8 +184,7 @@ class View implements \IteratorAggregate
     }
 
     /**
-     * 子テンプレートの描画結果を文字列として返します
-     * @return string
+     * @return StreamableInterface
      */
     function content()
     {
