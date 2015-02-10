@@ -148,7 +148,7 @@ class View implements \IteratorAggregate
      * テンプレートファイルを描画してstream にwrite
      * @return StreamableInterface
      */
-    function render(StreambleInteface $stream = null)
+    function render(StreamableInterface $stream = null)
     {
         $oneMB = 1 * 1024 * 1024;
         $stream = ($stream) ?: new Stream("php://temp/maxmemory:$oneMB", 'r+w');
